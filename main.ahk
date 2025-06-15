@@ -5,6 +5,8 @@ ProcessSetPriority "High"
 #include lib/vscode.ahk
 #include function/function.ahk
 
+#include mouse/mouse.ahk
+
 ; テストコマンド用
 ; ^q:: {
 
