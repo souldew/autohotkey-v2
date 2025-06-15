@@ -83,3 +83,33 @@ vk1D & a:: Send "^a"
 ;     SendEvent("{Blind}{Right}")
 ;     BlockInput false
 ; }
+
+!Tab::
+{
+    Send "{Blind}!{Tab}"
+    Sleep 150
+    while (GetKeyState("Alt", "P")) {
+        if (GetKeyState("h", "P")) {
+            Send "{Blind}{Left}"
+            Sleep 150
+        } else if (GetKeyState("j", "P")) {
+            Send "{Blind}{Down}"
+            Sleep 150
+        } else if (GetKeyState("k", "P")) {
+            Send "{Blind}{Up}"
+            Sleep 150
+        } else if (GetKeyState("l", "P")) {
+            Send "{Blind}{Right}"
+            Sleep 150
+        } else if (GetKeyState("Tab", "P")) {
+            if (GetKeyState("Shift", "P")) {
+                ; shift込の場合は勝手に押したことになる
+                ; Send "{Blind}+{Tab}"
+                Sleep 150
+            } else {
+                Send "{Blind}{Tab}"
+                Sleep 150
+            }
+        }
+    }
+}
