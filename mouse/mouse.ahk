@@ -65,14 +65,16 @@ XButton1 & WheelUp::
         altTabActive := true
         SetTimer(() => CheckXButton1Release(), 10)
     }
-
     Send "+{Tab}"
 }
 
 CheckXButton1Release() {
     global altTabActive
     if (!GetKeyState("XButton1", "P")) {
-        Send "{Alt Up}"
+        ; altTabActiveがtrueの場合のみAlt Upを送信
+        if (altTabActive) {
+            Send "{Alt Up}"
+        }
         altTabActive := false
         SetTimer(CheckXButton1Release, 0)
     }
