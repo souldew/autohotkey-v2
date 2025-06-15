@@ -21,4 +21,9 @@ Stop-process -name "AutoHotkeyV2"
 # 便利サイト
 
 押しているキーの把握用
-[キーボードテスト – あなたのキーボードをテストしましょう](https://www.onlinemictest.com/ja/keyboard-test/)
+
+- [キーボードテスト – あなたのキーボードをテストしましょう](https://www.onlinemictest.com/ja/keyboard-test/)
+
+v1 の位置
+
+- D:\Documents\tool-tmp\autohotkey
