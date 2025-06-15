@@ -54,6 +54,15 @@ vk1D & e:: SendEvent("{Esc}")
 vk1D::vk1D
 vk1C::vk1C
 
+vk1D & c:: SendEvent("^c")
+vk1D & x:: SendEvent("^x")
+vk1D & v:: SendEvent("^v")
+vk1D & s:: SendEvent("^s")
+vk1D & z:: SendEvent("^z")
+vk1D & y:: SendEvent("^+z")
+vk1D & f:: SendEvent("^f")
+vk1D & a:: SendEvent("^a")
+
 ; vk1C & h::{
 ;     BlockInput true
 ;     SendEvent("{Blind}{Left}")
