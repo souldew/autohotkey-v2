@@ -1,11 +1,11 @@
 #Requires AutoHotkey v2.0
 ProcessSetPriority "High"
 
-#include lib/vim_keybind.ahk
+#include lib/disable_keys_enable_henkan_layer.ahk
+#include lib/disable_keys_enable_muhenkan_layer.ahk
 #include lib/vscode.ahk
-#include function/function.ahk
 
-#include mouse/mouse.ahk
+; #include mouse/mouse.ahk
 
 ; テストコマンド用
 ; ^q:: {
