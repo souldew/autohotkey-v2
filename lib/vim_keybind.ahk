@@ -2,34 +2,10 @@
 #include delete_key.ahk
 #include ime.ahk
 
+; 2025-07-06
+; キー入力抜けが発生するのでlayer変更中は他のキー入力を無視するほうを使用するため未使用
+
 ; 特定操作中にvim keybindによる方向キー操作を許可する
-
-; ; 案1
-; g_vim_keybind_flg := false
-
-; vk1C & h::run_vim_key_bind("{Blind}{Left}")
-; vk1C & j::run_vim_key_bind("{Blind}{Down}")
-; vk1C & k::run_vim_key_bind("{Blind}{Up}")
-; vk1C & l::run_vim_key_bind("{Blind}{Right}")
-
-; run_vim_key_bind(key){
-;     Send(key)
-;     global g_vim_keybind_flg
-;     func_disable()
-;     while (GetKeyState("vk1C", "P")) {
-;         g_vim_keybind_flg := true
-;     }
-;     g_vim_keybind_flg := false
-;     func_enable()
-; }
-
-; #HotIf g_vim_keybind_flg
-; vk1C & h::Send("{Blind}{Left}")
-; vk1C & j::Send("{Blind}{Down}")
-; vk1C & k::Send("{Blind}{Up}")
-; vk1C & l::Send("{Blind}{Right}")
-; ; d & h::Send("{Blind}^{Left}")
-; #HotIf
 
 ; 案2
 vk1C & h:: Send "{Blind}{Left}"
