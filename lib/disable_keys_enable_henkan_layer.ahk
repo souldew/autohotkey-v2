@@ -19,7 +19,7 @@ vk1C & vkBA:: run_henkan_layer("{Delete}")
 vk1C & Space:: run_henkan_layer("{Enter}")
 
 ; 片手操作用に追加
-vk1C & i:: run_henkan_layer("{Enter}")
+vk1C & o:: run_henkan_layer("{Enter}")
 
 run_henkan_layer(key) {
     Send(key)
@@ -44,5 +44,5 @@ vk1C & .:: Send("{Blind}{End}")
 vk1C & vkBB:: Send("{Bs}")
 vk1C & vkBA:: Send("{Delete}")
 vk1C & Space:: Send("{Enter}")
-vk1C & i:: Send("{Enter}")
+vk1C & o:: Send("{Enter}")
 #HotIf

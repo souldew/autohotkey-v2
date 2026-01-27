@@ -23,7 +23,3 @@ Stop-process -name "AutoHotkeyV2"
 押しているキーの把握用
 
 - [キーボードテスト – あなたのキーボードをテストしましょう](https://www.onlinemictest.com/ja/keyboard-test/)
-
-v1 の位置
-
-- D:\Documents\tool-tmp\autohotkey
