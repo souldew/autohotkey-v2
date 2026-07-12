@@ -7,9 +7,11 @@ ProcessSetPriority "High"
 
 #include lib/henkan_layer.ahk
 #include lib/muhenkan_layer.ahk
+; #include lib/space_layer.ahk
 #include lib/vscode.ahk
 
 ; #include mouse/mouse.ahk
+#include mouse.ahk
 
 ; テストコマンド用
 ; ^q:: {
