@@ -7,18 +7,15 @@ A_MaxHotkeysPerInterval := 1000
 
 ; #include lib/disable_keys_enable_henkan_layer.ahk
 ; #include lib/disable_keys_enable_muhenkan_layer.ahk
-; #include lib/vim_keybind.ahk
 
 #include lib/henkan_layer.ahk
 ; #include lib/muhenkan_layer.ahk
-; #include lib/space_layer.ahk
+#include lib/space_layer.ahk
 ; #include lib/vscode.ahk
 
 ; #include mouse/mouse.ahk
-; #include mouse.ahk
-; #include henkan_muhenkan_mouse.ahk
 #Include muhenkan_mouse.ahk
-vk1D & w:: Send "{Blind}{Esc}"
+
 ; テストコマンド用
 ; ^q:: {
 

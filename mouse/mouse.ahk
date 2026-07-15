@@ -1,3 +1,6 @@
+; [WIP]
+; MouseGestureL をAHKのスクリプトで置き換えたい
+
 #Requires AutoHotkey v2.0
 
 ; ホバーしているウインドウのタブを切り替える
