@@ -9,9 +9,9 @@
 ;
 ; キー配置・速度・加速/減速・スクロールは keybd_mouse と同一。
 ;   移動      : E上 / D下 / S左 / F右
-;   クリック  : H左 / I右 / U中
-;   スクロール: K上 / J下
-;   加速      : ; (vkBB)     減速: L
+;   クリック  : H左 / I右 / U中   （追加: A左 / Z右）
+;   スクロール: K上 / J下         （追加: V上 / C下）
+;   加速      : ; (vkBB) / Shift  減速: L / Ctrl
 ;
 ; 仕組み:
 ;  ・無変換 + 割当キーを押すとポーリングループが起動し、無変換を
@@ -29,17 +29,21 @@ vk1D::vk1D
 MM := { active: false, btn: Map() }
 
 ; 無変換 + 割当キーでマウスモード起動 (無変換を押している間だけ)
-vk1D & e::    MuhenkanMouse_Start()   ; 移動 上
-vk1D & d::    MuhenkanMouse_Start()   ; 移動 下
-vk1D & s::    MuhenkanMouse_Start()   ; 移動 左
-vk1D & f::    MuhenkanMouse_Start()   ; 移動 右
-vk1D & h::    MuhenkanMouse_Start()   ; 左クリック
-vk1D & i::    MuhenkanMouse_Start()   ; 右クリック
-vk1D & u::    MuhenkanMouse_Start()   ; 中クリック
-vk1D & k::    MuhenkanMouse_Start()   ; 上スクロール
-vk1D & j::    MuhenkanMouse_Start()   ; 下スクロール
+vk1D & e:: MuhenkanMouse_Start()   ; 移動 上
+vk1D & d:: MuhenkanMouse_Start()   ; 移動 下
+vk1D & s:: MuhenkanMouse_Start()   ; 移動 左
+vk1D & f:: MuhenkanMouse_Start()   ; 移動 右
+vk1D & h:: MuhenkanMouse_Start()   ; 左クリック
+vk1D & i:: MuhenkanMouse_Start()   ; 右クリック
+vk1D & u:: MuhenkanMouse_Start()   ; 中クリック
+vk1D & k:: MuhenkanMouse_Start()   ; 上スクロール
+vk1D & j:: MuhenkanMouse_Start()   ; 下スクロール
+vk1D & a:: MuhenkanMouse_Start()   ; 左クリック
+vk1D & z:: MuhenkanMouse_Start()   ; 右クリック
+vk1D & v:: MuhenkanMouse_Start()   ; 上スクロール
+vk1D & c:: MuhenkanMouse_Start()   ; 下スクロール
 vk1D & vkBB:: MuhenkanMouse_Start()   ; 加速 (;)
-vk1D & l::    MuhenkanMouse_Start()   ; 減速
+vk1D & l:: MuhenkanMouse_Start()   ; 減速
 
 MuhenkanMouse_Start() {
     global MM
@@ -49,23 +53,21 @@ MuhenkanMouse_Start() {
     MM.active := true
 
     ; --- キー設定 ---
-    keyUp      := "e"
-    keyDown    := "d"
-    keyLeft    := "s"
-    keyRight   := "f"
-    keyLB      := "h"                 ; 左クリック
-    keyRB      := "i"                 ; 右クリック
-    keyMB      := "u"                 ; 中クリック
-    keyScrollU := "k"                 ; 上スクロール
-    keyScrollD := "j"                 ; 下スクロール
-    accelKey   := "vkBB"              ; 加速 (;)
-    decelKey   := "l"                 ; 減速
+    keyUp := "e"
+    keyDown := "d"
+    keyLeft := "s"
+    keyRight := "f"
+    keyLB := ["h", "a"]          ; 左クリック
+    keyRB := ["i", "z"]          ; 右クリック
+    keyMB := ["u"]               ; 中クリック
+    keyScrollU := ["k", "v"]          ; 上スクロール
+    keyScrollD := ["j", "c"]          ; 下スクロール
 
     ; 低:5 中:24 高:64
     defaultSpeed := 12                ; 規定のカーソル移動速度
-    accelVol     := 24                ; 加速時の増加量
-    slowVol      := 5                 ; 減速時の速度
-    moveRatio    := 1                 ; 縦横移動量倍率
+    accelVol := 24                ; 加速時の増加量
+    slowVol := 5                 ; 減速時の速度
+    moveRatio := 1                 ; 縦横移動量倍率
 
     ; --- 開始処理 ---
     CoordMode "Mouse", "Client"
@@ -73,11 +75,11 @@ MuhenkanMouse_Start() {
 
     ; --- メインループ (無変換を押している間だけ) ---
     while GetKeyState("vk1D", "P") {
-        ; 速度
+        ; 速度 (加速: ; または Shift / 減速: L または Ctrl)
         speed := defaultSpeed
-        if GetKeyState(accelKey, "P")
+        if MuhenkanMouse_Accel()
             speed += accelVol
-        if GetKeyState(decelKey, "P")
+        if MuhenkanMouse_Decel()
             speed := slowVol
 
         ; 移動
@@ -98,8 +100,8 @@ MuhenkanMouse_Start() {
         MuhenkanMouse_Button(keyMB, "Middle")
 
         ; スクロール
-        MuhenkanMouse_Scroll(keyScrollU, "{WheelUp}", accelKey, decelKey, accelVol)
-        MuhenkanMouse_Scroll(keyScrollD, "{WheelDown}", accelKey, decelKey, accelVol)
+        MuhenkanMouse_Scroll(keyScrollU, "{WheelUp}", accelVol)
+        MuhenkanMouse_Scroll(keyScrollD, "{WheelDown}", accelVol)
 
         Sleep 10
     }
@@ -113,13 +115,16 @@ MuhenkanMouse_Start() {
 }
 
 ; ボタンの押下状態を見て、変化した瞬間だけ Down / Up を送る
-MuhenkanMouse_Button(key, btn) {
+; NOTE: 以前はここで Sleep 150 していたが、その間に素早い2連打(離す→再押下)が
+;       握りつぶされ、ダブルクリックが1回の長押しになってしまうため削除。
+;       Sleep を挟まないことで、2連打が確実に2クリック → Windows が
+;       ダブルクリックとして認識する。ドラッグ(押しながら移動)も可能。
+MuhenkanMouse_Button(keys, btn) {
     global MM
-    if GetKeyState(key, "P") {
+    if MuhenkanMouse_AnyDown(keys) {
         if !MM.btn[btn] {
             MouseClick btn, , , , , "D"
             MM.btn[btn] := true
-            Sleep 150                 ; 押下時に一瞬止める
         }
     } else if MM.btn[btn] {
         MouseClick btn, , , , , "U"
@@ -128,15 +133,28 @@ MuhenkanMouse_Button(key, btn) {
 }
 
 ; スクロールキーが押されている間、ホイールを送り続ける
-MuhenkanMouse_Scroll(key, wheel, accelKey, decelKey, accelVol) {
+MuhenkanMouse_Scroll(keys, wheel, accelVol) {
     global MM
-    while MM.active && GetKeyState("vk1D", "P") && GetKeyState(key, "P") {
+    while MM.active && GetKeyState("vk1D", "P") && MuhenkanMouse_AnyDown(keys) {
         Send "{Blind}" wheel
         wait := 100
-        if GetKeyState(accelKey, "P")
+        if MuhenkanMouse_Accel()
             wait -= accelVol * 5
-        if GetKeyState(decelKey, "P")
+        if MuhenkanMouse_Decel()
             wait := 200
         Sleep Max(wait, 10)
     }
 }
+
+; 割当キー(配列)のいずれかが物理的に押されているか
+MuhenkanMouse_AnyDown(keys) {
+    for k in keys {
+        if GetKeyState(k, "P")
+            return true
+    }
+    return false
+}
+
+; 加速: ; (vkBB) または Shift / 減速: L または Ctrl
+MuhenkanMouse_Accel() => GetKeyState("vkBB", "P") || GetKeyState("Shift", "P")
+MuhenkanMouse_Decel() => GetKeyState("l", "P") || GetKeyState("Ctrl", "P")
