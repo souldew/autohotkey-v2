@@ -3,6 +3,16 @@
 ; キーボードマウス以外の挙動
 vk1D::vk1D
 vk1D & w:: Send "{Blind}{Esc}"
+vk1D & p:: CenterCursorOnActiveWindow()
+
+CenterCursorOnActiveWindow() {
+    hwnd := WinExist("A")
+    if !hwnd
+        return
+    WinGetPos &x, &y, &w, &h, hwnd
+    CoordMode "Mouse", "Screen"
+    MouseMove x + w // 2, y + h // 2, 0
+}
 
 ; ============================================================
 ; 無変換マウス: 無変換(vk1D) を押している間だけマウス操作
