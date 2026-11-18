@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoHotkey キーマップ</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --key: #ffffff;
+    --key-border: #d0d7de;
+    --key-idle-text: #b4bac2;
+    --trigger: #1f2328;
+    --trigger-text: #ffffff;
+    --nav: #dbeafe;      --nav-b: #3b82f6;
+    --edit: #fde68a;     --edit-b: #d97706;
+    --move: #dcfce7;     --move-b: #16a34a;
+    --click: #fce7f3;    --click-b: #db2777;
+    --scroll: #ede9fe;   --scroll-b: #7c3aed;
+    --speed: #ffedd5;    --speed-b: #ea580c;
+    --misc: #e5e7eb;     --misc-b: #6b7280;
+    --clip: #ccfbf1;     --clip-b: #0d9488;
+    --mod: #e0e7ff;      --mod-b: #4f46e5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --text: #e6e8eb;
+      --muted: #9aa3ad;
+      --key: #1f232b;
+      --key-border: #343a46;
+      --key-idle-text: #4b5260;
+      --trigger: #e6e8eb;
+      --trigger-text: #0f1115;
+      --nav: #1e3a5f;      --nav-b: #60a5fa;
+      --edit: #4a3a10;     --edit-b: #fbbf24;
+      --move: #14402a;     --move-b: #4ade80;
+      --click: #4a1832;    --click-b: #f472b6;
+      --scroll: #2e2257;   --scroll-b: #a78bfa;
+      --speed: #4a2610;    --speed-b: #fb923c;
+      --misc: #2a2f38;     --misc-b: #9aa3ad;
+      --clip: #0f3d3a;     --clip-b: #2dd4bf;
+      --mod: #262a5c;      --mod-b: #818cf8;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 48px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+    line-height: 1.5;
+  }
+  main { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 0 0 4px; }
+  p.lead { color: var(--muted); margin: 0 0 24px; font-size: .9rem; }
+  section.layer {
+    background: var(--panel);
+    border: 1px solid var(--key-border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .layer-desc { color: var(--muted); font-size: .85rem; margin: 0 0 12px; }
+  .kb-wrap { overflow-x: auto; }
+  .kb { --u: 62px; display: flex; flex-direction: column; gap: 4px; width: max-content; }
+  .row { display: flex; gap: 4px; }
+  .key {
+    position: relative;
+    height: var(--u);
+    border: 1px solid var(--key-border);
+    border-radius: 6px;
+    background: var(--key);
+    padding: 3px 5px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+  }
+  .key .base { font-size: 10px; color: var(--muted); }
+  .key .act { font-size: 12px; font-weight: 600; line-height: 1.2; }
+  .key.idle .base { color: var(--key-idle-text); }
+  .key.trigger { background: var(--trigger); border-color: var(--trigger); }
+  .key.trigger .base, .key.trigger .act { color: var(--trigger-text); }
+  .key.nav    { background: var(--nav);    border-color: var(--nav-b); }
+  .key.edit   { background: var(--edit);   border-color: var(--edit-b); }
+  .key.move   { background: var(--move);   border-color: var(--move-b); }
+  .key.click  { background: var(--click);  border-color: var(--click-b); }
+  .key.scroll { background: var(--scroll); border-color: var(--scroll-b); }
+  .key.speed  { background: var(--speed);  border-color: var(--speed-b); }
+  .key.misc   { background: var(--misc);   border-color: var(--misc-b); }
+  .key.clip   { background: var(--clip);   border-color: var(--clip-b); }
+  .key.mod    { background: var(--mod);    border-color: var(--mod-b); }
+  .key.gap    { visibility: hidden; }
+  a { color: inherit; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 12px; font-size: .8rem; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 14px; height: 14px; border-radius: 4px; border: 1px solid; display: inline-block; }
+  .notes { font-size: .85rem; color: var(--muted); margin: 12px 0 0; padding-left: 1.2em; }
+  table { border-collapse: collapse; font-size: .9rem; }
+  th, td { border: 1px solid var(--key-border); padding: 6px 12px; text-align: left; }
+  th { background: var(--bg); }
+</style>
+</head>
+<body>
+<main>
+  <h1>AutoHotkey キーマップ</h1>
+  <p class="lead">main.ahk で読み込んでいる設定（henkan_layer.ahk・muhenkan_mouse.ahk・xbutton1_hscroll.ahk）を JIS 配列の上に描いたもの。キーの左上が元のキー、下が押したときの動作。</p>
+  <div id="layers"></div>
+
+  <section class="layer">
+    <h2>マウス: 戻るボタン（XButton1）</h2>
+    <p class="layer-desc">mouse/xbutton1_hscroll.ahk</p>
+    <table>
+      <tr><th>操作</th><th>動作</th></tr>
+      <tr><td>XButton1 ＋ ホイール下</td><td>右へ横スクロール</td></tr>
+      <tr><td>XButton1 ＋ ホイール上</td><td>左へ横スクロール</td></tr>
+      <tr><td>XButton1 単押し</td><td>戻る</td></tr>
+    </table>
+  </section>
+
+  <div id="refs"></div>
+
+  <section class="layer">
+    <h2>参考: QMK の Mouse Keys</h2>
+    <p class="layer-desc"><a href="https://docs.qmk.fm/features/mouse_keys">QMK Firmware の Mouse Keys</a></p>
+    <p class="layer-desc">QMK の Mouse Keys は、キーボードでマウスを操作するためのキーコードと動き方を決めた機能。どのキーに置くかの配置は決めていないので、図ではなく、使える機能を並べる。</p>
+    <table>
+      <tr><th>機能</th><th>キーコード</th><th>muhenkan_mouse.ahk での対応</th></tr>
+      <tr><td>カーソル移動（上下左右）</td><td>MS_UP・MS_DOWN・MS_LEFT・MS_RGHT</td><td>E・D・S・F</td></tr>
+      <tr><td>クリック（ボタン 1〜8）</td><td>MS_BTN1〜MS_BTN8</td><td>左・右・中クリックのみ</td></tr>
+      <tr><td>ホイール（上下左右）</td><td>MS_WHLU・MS_WHLD・MS_WHLL・MS_WHLR</td><td>上下のみ（左右は無い）</td></tr>
+      <tr><td>速度の切り替え（3 段階）</td><td>MS_ACL0・MS_ACL1・MS_ACL2</td><td>無し（押し続けた時間で加速）</td></tr>
+    </table>
+    <ul class="notes">
+      <li>動き方のモード: 押し続けると速くなる Accelerated（既定）、加速が二次曲線の Kinetic、一定速度の Constant、Accelerated に速度固定キーを足した Combined、離したあとも少し滑る Inertia。</li>
+      <li>muhenkan_mouse.ahk は、Miryoku と同じく Accelerated（押し続けると速くなる）にならっている。</li>
+    </ul>
+  </section>
+</main>
+
+<script>
+  // JIS 配列のメインキー部分。w はキー幅（1 = 通常のキー 1 個分）
+  const ROWS = [
+    [["zenkaku", "半/全"], ["1"], ["2"], ["3"], ["4"], ["5"], ["6"], ["7"], ["8"], ["9"], ["0"], ["-"], ["^"], ["yen", "¥"], ["bs", "BS"]],
+    [["tab", "Tab", 1.5], ["q"], ["w"], ["e"], ["r"], ["t"], ["y"], ["u"], ["i"], ["o"], ["p"], ["@"], ["["], ["enter1", "Enter", 1.5]],
+    [["caps", "Caps", 1.75], ["a"], ["s"], ["d"], ["f"], ["g"], ["h"], ["j"], ["k"], ["l"], [";"], [":"], ["]"], ["enter2", "", 1.25]],
+    [["lshift", "Shift", 2.25], ["z"], ["x"], ["c"], ["v"], ["b"], ["n"], ["m"], [","], ["."], ["/"], ["ro", "＼"], ["rshift", "Shift", 1.75]],
+    [["lctrl", "Ctrl", 1.25], ["lwin", "Win", 1.25], ["lalt", "Alt", 1.25], ["muhenkan", "無変換", 1.25], ["space", "Space", 3], ["henkan", "変換", 1.25], ["kana", "かな", 1.25], ["ralt", "Alt", 1.25], ["rwin", "Win"], ["menu", "Menu"], ["rctrl", "Ctrl", 1.25]],
+  ];
+
+  const CATEGORIES = {
+    nav: "カーソル移動",
+    edit: "入力・削除",
+    move: "マウス移動",
+    click: "クリック",
+    scroll: "スクロール",
+    speed: "速度",
+    clip: "クリップボード",
+    mod: "修飾キー",
+    misc: "その他",
+  };
+
+  const LAYERS = [
+    {
+      title: "変換レイヤー（変換を押している間）",
+      source: "lib/henkan_layer.ahk",
+      trigger: "henkan",
+      keys: {
+        h: ["←", "nav"], j: ["↓", "nav"], k: ["↑", "nav"], l: ["→", "nav"],
+        n: ["Home", "nav"], m: ["PgDn", "nav"], ",": ["PgUp", "nav"], ".": ["End", "nav"],
+        space: ["Enter", "edit"], o: ["Enter", "edit"],
+        ";": ["BS", "edit"], ":": ["Delete", "edit"],
+      },
+      notes: [
+        "変換の単押しは通常の変換。",
+        "カーソル移動は {Blind} 付きなので、Shift や Ctrl と一緒に押すと選択・単語移動になる。",
+      ],
+    },
+    {
+      title: "無変換レイヤー（無変換を押している間）",
+      source: "muhenkan_mouse.ahk",
+      trigger: "muhenkan",
+      keys: {
+        e: ["↑ 移動", "move"], d: ["↓ 移動", "move"], s: ["← 移動", "move"], f: ["→ 移動", "move"],
+        h: ["左クリック", "click"], a: ["左クリック", "click"],
+        i: ["右クリック", "click"], z: ["右クリック", "click"],
+        u: ["中クリック", "click"],
+        k: ["ホイール↑", "scroll"], v: ["ホイール↑", "scroll"],
+        j: ["ホイール↓", "scroll"], c: ["ホイール↓", "scroll"],
+        w: ["Esc", "misc"], p: ["窓の中央", "misc"],
+      },
+      notes: [
+        "無変換の単押しは通常の無変換。",
+        "移動・クリック・スクロールのキーを押すとマウス操作が始まり、無変換を離すと終わる。クリックは押している間ボタンを押しっぱなしにするので、ドラッグもできる。",
+        "速度は Miryoku と同じく加速・減速キーを持たず、押し続けると速くなる。今のプリセットは miryoku-max28（Miryoku と同じ加速で、最高速を 16ms あたり 28px、約 1750px/秒に抑えたもの。約 0.6 秒で届く）。",
+        "ほかのプリセットと比較は docs/mouse-speed-presets.md。",
+        "ホイールはまだ独自の値で、押し続けると約 1 秒で送る間隔が 100ms から 25ms まで縮む。",
+        "Shift・Ctrl は修飾キーとしてそのまま効く（Ctrl＋クリック、Shift＋ホイールなど）。",
+      ],
+    },
+  ];
+
+  function renderLayer(layer) {
+    const section = document.createElement("section");
+    section.className = "layer";
+    section.innerHTML = `<h2>${layer.title}</h2><p class="layer-desc">${layer.source}</p>`;
+
+    const wrap = document.createElement("div");
+    wrap.className = "kb-wrap";
+    const kb = document.createElement("div");
+    kb.className = "kb";
+
+    for (const row of layer.rows ?? ROWS) {
+      const rowEl = document.createElement("div");
+      rowEl.className = "row";
+      for (const [id, label = id, w = 1] of row) {
+        const key = document.createElement("div");
+        key.className = "key";
+        key.style.width = `calc(var(--u) * ${w} + 4px * ${w - 1})`;
+        const mapped = layer.keys[id];
+        let act = "";
+        if (id === null) {
+          key.classList.add("gap");
+        } else if ([layer.trigger].flat().includes(id)) {
+          key.classList.add("trigger");
+          act = "押したまま";
+        } else if (mapped) {
+          key.classList.add(mapped[1]);
+          act = mapped[0];
+        } else {
+          key.classList.add("idle");
+        }
+        key.innerHTML = `<span class="base">${label}</span><span class="act">${act}</span>`;
+        rowEl.appendChild(key);
+      }
+      kb.appendChild(rowEl);
+    }
+    wrap.appendChild(kb);
+    section.appendChild(wrap);
+
+    const used = new Set(Object.values(layer.keys).map(([, c]) => c));
+    const legend = document.createElement("div");
+    legend.className = "legend";
+    for (const [cat, name] of Object.entries(CATEGORIES)) {
+      if (!used.has(cat)) continue;
+      legend.innerHTML += `<span><i style="background: var(--${cat}); border-color: var(--${cat}-b)"></i>${name}</span>`;
+    }
+    section.appendChild(legend);
+
+    const notes = document.createElement("ul");
+    notes.className = "notes";
+    notes.innerHTML = layer.notes.map((n) => `<li>${n}</li>`).join("");
+    section.appendChild(notes);
+    return section;
+  }
+
+  const container = document.getElementById("layers");
+  for (const layer of LAYERS) container.appendChild(renderLayer(layer));
+
+  // Miryoku は 36 キーの分割キーボード向け。キーの左上は QWERTY 版の Miryoku のベース層
+  const MIRYOKU_ROWS = [
+    [["q"], ["w"], ["e"], ["r"], ["t"], [null, "", 1], ["y"], ["u"], ["i"], ["o"], ["p"]],
+    [["a"], ["s"], ["d"], ["f"], ["g"], [null, "", 1], ["h"], ["j"], ["k"], ["l"], ["'"]],
+    [["z"], ["x"], ["c"], ["v"], ["b"], [null, "", 1], ["n"], ["m"], [","], ["."], ["/"]],
+    [[null, "", 2], ["t_esc", "Esc"], ["t_spc", "Space"], ["t_tab", "Tab"], [null, "", 1], ["t_ent", "Enter"], ["t_bsp", "BS"], ["t_del", "Del"], [null, "", 2]],
+  ];
+
+  const MIRYOKU_COMMON = {
+    y: ["Redo", "clip"], u: ["Paste", "clip"], i: ["Copy", "clip"], o: ["Cut", "clip"], p: ["Undo", "clip"],
+    a: ["Win", "mod"], s: ["Alt", "mod"], d: ["Ctrl", "mod"], f: ["Shift", "mod"], x: ["AltGr", "mod"],
+    t_ent: ["右クリック", "click"], t_bsp: ["左クリック", "click"], t_del: ["中クリック", "click"],
+  };
+
+  const MIRYOKU_LAYERS = [
+    {
+      title: "参考: Miryoku のマウスレイヤー（標準）",
+      source: `<a href="https://github.com/manna-harbour/miryoku_qmk/blob/miryoku/users/manna-harbour_miryoku/miryoku_babel/miryoku_layer_alternatives.h">miryoku_qmk の MIRYOKU_ALTERNATIVES_MOUSE</a>`,
+      rows: MIRYOKU_ROWS,
+      trigger: "t_tab",
+      keys: {
+        ...MIRYOKU_COMMON,
+        j: ["← 移動", "move"], k: ["↓ 移動", "move"], l: ["↑ 移動", "move"], "'": ["→ 移動", "move"],
+        m: ["ホイール←", "scroll"], ",": ["ホイール↓", "scroll"], ".": ["ホイール↑", "scroll"], "/": ["ホイール→", "scroll"],
+      },
+      notes: [
+        "左手の親指（Tab の位置）で切り替え、右手で操作する。切り替えキーと反対の手に機能を置くのが Miryoku の基本方針。",
+        "移動はカーソル移動のレイヤー（Nav）と同じ位置で、ホイールはその 1 段下。Nav で PgDn・PgUp を置いている位置にホイールが来る。",
+        "クリックは右手の親指（左クリックが真ん中の親指）。指で移動しながら親指でクリックできるので、ドラッグしやすい。",
+        "左手のホームポジションは修飾キー（Win・Alt・Ctrl・Shift）。Ctrl＋クリックや Shift＋ホイールを片手ずつで押せる。",
+        "上段の右はクリップボード操作（Nav と同じ並び）。左上の段は Miryoku 独自の特殊キーなので省いた。",
+        "片手用には、別に Button レイヤー（クリック・修飾キー・クリップボード）がある。",
+      ],
+    },
+    {
+      title: "参考: Miryoku のマウスレイヤー（vi 配置）",
+      source: `<a href="https://github.com/manna-harbour/miryoku_qmk/blob/miryoku/users/manna-harbour_miryoku/miryoku_babel/miryoku_layer_alternatives.h">miryoku_qmk の MIRYOKU_ALTERNATIVES_MOUSE_VI</a>（MIRYOKU_NAV=VI で選ぶ）`,
+      rows: MIRYOKU_ROWS,
+      trigger: "t_tab",
+      keys: {
+        ...MIRYOKU_COMMON,
+        h: ["← 移動", "move"], j: ["↓ 移動", "move"], k: ["↑ 移動", "move"], l: ["→ 移動", "move"],
+        n: ["ホイール←", "scroll"], m: ["ホイール↓", "scroll"], ",": ["ホイール↑", "scroll"], ".": ["ホイール→", "scroll"],
+      },
+      notes: [
+        "標準の配置を 1 列左にずらし、移動を hjkl にそろえたもの。変換レイヤーの hjkl の矢印と同じ並びになる。",
+      ],
+    },
+    {
+      title: "参考: Miryoku の Button レイヤー（片手用）",
+      source: `<a href="https://github.com/manna-harbour/miryoku_qmk/blob/miryoku/users/manna-harbour_miryoku/miryoku_babel/miryoku_layer_alternatives.h">miryoku_qmk の MIRYOKU_ALTERNATIVES_BUTTON</a>`,
+      rows: MIRYOKU_ROWS,
+      trigger: ["z", "/"],
+      keys: {
+        q: ["Undo", "clip"], w: ["Cut", "clip"], e: ["Copy", "clip"], r: ["Paste", "clip"], t: ["Redo", "clip"],
+        y: ["Redo", "clip"], u: ["Paste", "clip"], i: ["Copy", "clip"], o: ["Cut", "clip"], p: ["Undo", "clip"],
+        a: ["Win", "mod"], s: ["Alt", "mod"], d: ["Ctrl", "mod"], f: ["Shift", "mod"],
+        j: ["Shift", "mod"], k: ["Ctrl", "mod"], l: ["Alt", "mod"], "'": ["Win", "mod"],
+        x: ["Cut", "clip"], c: ["Copy", "clip"], v: ["Paste", "clip"], b: ["Redo", "clip"],
+        n: ["Redo", "clip"], m: ["Paste", "clip"], ",": ["Copy", "clip"], ".": ["Cut", "clip"],
+        t_esc: ["中クリック", "click"], t_spc: ["左クリック", "click"], t_tab: ["右クリック", "click"],
+        t_ent: ["右クリック", "click"], t_bsp: ["左クリック", "click"], t_del: ["中クリック", "click"],
+      },
+      notes: [
+        "トラックボールやタッチパッドなど、別のポインティングデバイスでカーソルを動かす前提のレイヤー。カーソル移動とホイールのキーは無い。",
+        "左右が鏡写しになっていて、どちらの手でも同じ操作ができる。もう一方の手はポインティングデバイスに置いたままにできる。",
+        "下段の小指のキー（z か /）を押している間に有効になる。ハードウェアと設定によっては、ポインティングデバイスを動かすと自動で有効にもできる。",
+        "README によると、z か / を押して有効にしたときは Win と Undo が使えない。",
+      ],
+    },
+  ];
+
+  const refs = document.getElementById("refs");
+  for (const layer of MIRYOKU_LAYERS) refs.appendChild(renderLayer(layer));
+</script>
+</body>
+</html>

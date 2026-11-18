@@ -17,15 +17,19 @@ CenterCursorOnActiveWindow() {
 ; ============================================================
 ; 無変換マウス: 無変換(vk1D) を押している間だけマウス操作
 ; ============================================================
-; mouse.ahk の keybd_mouse と同じ挙動。違いは起動方法のみ:
+; mouse.ahk の keybd_mouse がもと。起動方法と速度の決め方が違う:
 ;   keybd_mouse … 無変換 + / でトグル、/ で終了
 ;   このファイル … 無変換を押している間だけ有効 (離すと終了)
 ;
-; キー配置・速度・加速/減速・スクロールは keybd_mouse と同一。
 ;   移動      : E上 / D下 / S左 / F右
 ;   クリック  : H左 / I右 / U中   （追加: A左 / Z右）
 ;   スクロール: K上 / J下         （追加: V上 / C下）
-;   加速      : ; (vkBB) / Shift  減速: L / Ctrl
+;
+; 速度は Miryoku にならい、加速・減速キーを持たない。移動・スクロールのキーを押し続けた
+; 時間に応じて最高速まで直線的に上がり、離すと最低速に戻る。Shift / Ctrl は修飾キーとして
+; そのままクリックやホイールに効く（Ctrl+クリック、Shift+ホイールなど）。
+; カーソル移動の速さは MM_MOVE_PRESET で名前付きのプリセットから選ぶ（設定は下）。
+; 各プリセットの速さの比較と、採用の経緯は docs/mouse-speed-presets.md。
 ;
 ; 仕組み:
 ;  ・無変換 + 割当キーを押すとポーリングループが起動し、無変換を
@@ -39,6 +43,29 @@ CenterCursorOnActiveWindow() {
 
 ; モードの状態
 MM := { active: false, btn: Map() }
+
+; カーソル移動のプリセット
+;   type "qmk"    … QMK Mouse Keys の Accelerated モード (quantum/mousekey.c の move_unit)。
+;                   delta / maxSpeed / timeToMax / intervalMs / moveMax は QMK の
+;                   MOUSEKEY_MOVE_DELTA / MAX_SPEED / TIME_TO_MAX / INTERVAL / MOVE_MAX と同じ意味。
+;                   1 レポート = AHK の 1px として扱うので、Windows のポインター速度の設定しだいで
+;                   実機の QMK とは体感が少しずれる。
+;   type "linear" … ループ (Sleep 10、実際は 10〜16ms) ごとの移動量を、押し続けた時間に応じて
+;                   min から max px まで rampMs かけて直線的に増やす。斜めは補正しない。
+MM_MOVE_PRESET := "miryoku-max28"
+MM_MOVE_PRESETS := Map(
+    ; Miryoku の config.h の値そのまま (moveMax は QMK の既定値)
+    "miryoku", { type: "qmk", delta: 8, maxSpeed: 6, timeToMax: 64, intervalMs: 16, moveMax: 127 },
+    ; Miryoku の加速のまま、1 レポートの移動量の上限だけ下げたもの
+    "miryoku-max36", { type: "qmk", delta: 8, maxSpeed: 6, timeToMax: 64, intervalMs: 16, moveMax: 36 },
+    "miryoku-max28", { type: "qmk", delta: 8, maxSpeed: 6, timeToMax: 64, intervalMs: 16, moveMax: 28 },
+    "linear-ramp", { type: "linear", min: 1, max: 36, rampMs: 1000 }
+)
+
+; ホイールの設定
+MM_WHEEL_SLOW_MS := 100   ; 押し始めのホイール送り間隔
+MM_WHEEL_FAST_MS := 25    ; 最高速のホイール送り間隔
+MM_WHEEL_RAMP_MS := 1000  ; 最高速に達するまでの時間
 
 ; 無変換 + 割当キーでマウスモード起動 (無変換を押している間だけ)
 vk1D & e:: MuhenkanMouse_Start()   ; 移動 上
@@ -54,8 +81,6 @@ vk1D & a:: MuhenkanMouse_Start()   ; 左クリック
 vk1D & z:: MuhenkanMouse_Start()   ; 右クリック
 vk1D & v:: MuhenkanMouse_Start()   ; 上スクロール
 vk1D & c:: MuhenkanMouse_Start()   ; 下スクロール
-vk1D & vkBB:: MuhenkanMouse_Start()   ; 加速 (;)
-vk1D & l:: MuhenkanMouse_Start()   ; 減速
 
 MuhenkanMouse_Start() {
     global MM
@@ -75,36 +100,51 @@ MuhenkanMouse_Start() {
     keyScrollU := ["k", "v"]          ; 上スクロール
     keyScrollD := ["j", "c"]          ; 下スクロール
 
-    ; 低:5 中:24 高:64
-    defaultSpeed := 12                ; 規定のカーソル移動速度
-    accelVol := 24                ; 加速時の増加量
-    slowVol := 5                 ; 減速時の速度
     moveRatio := 1                 ; 縦横移動量倍率
+    preset := MM_MOVE_PRESETS[MM_MOVE_PRESET]
 
     ; --- 開始処理 ---
     CoordMode "Mouse", "Client"
     MM.btn := Map("Left", false, "Right", false, "Middle", false)
+    moveStart := 0                    ; 移動キーを押し始めた時刻 (0 = 押していない)
+    moveRepeat := 0                   ; 次に送るレポートの番号 (QMK の mousekey_repeat)
 
     ; --- メインループ (無変換を押している間だけ) ---
     while GetKeyState("vk1D", "P") {
-        ; 速度 (加速: ; または Shift / 減速: L または Ctrl)
-        speed := defaultSpeed
-        if MuhenkanMouse_Accel()
-            speed += accelVol
-        if MuhenkanMouse_Decel()
-            speed := slowVol
-
         ; 移動
-        moveX := 0, moveY := 0
-        if GetKeyState(keyUp, "P")
-            moveY += speed
-        if GetKeyState(keyDown, "P")
-            moveY -= speed
-        if GetKeyState(keyLeft, "P")
-            moveX -= speed * moveRatio
-        if GetKeyState(keyRight, "P")
-            moveX += speed * moveRatio
-        MouseMove moveX, -moveY, 0, "R"
+        ; type "qmk": QMK はキーを押した瞬間に repeat=0 のレポートを送り、MOUSEKEY_DELAY=0 なので
+        ; 直後に repeat=1、以降 MOUSEKEY_INTERVAL ごとに repeat=2,3,... を送る。
+        ; Sleep の精度は 10〜16ms と粗いので、経過時間から送るべきレポート数を出して
+        ; 遅れた分はまとめて動かす。
+        dirX := GetKeyState(keyRight, "P") - GetKeyState(keyLeft, "P")
+        dirY := GetKeyState(keyDown, "P") - GetKeyState(keyUp, "P")
+        if MuhenkanMouse_AnyDown([keyUp, keyDown, keyLeft, keyRight]) {
+            if !moveStart {
+                moveStart := A_TickCount
+                moveRepeat := 0
+            }
+            moveX := 0, moveY := 0
+            if preset.type = "linear" {
+                speed := Round(MuhenkanMouse_Ramp(moveStart, preset.rampMs, preset.min, preset.max))
+                moveX := speed * dirX, moveY := speed * dirY
+            } else {
+                due := (A_TickCount - moveStart) // preset.intervalMs + 1
+            }
+            while preset.type = "qmk" && moveRepeat <= due {
+                unit := MuhenkanMouse_MoveUnit(preset, moveRepeat)
+                stepX := unit * dirX, stepY := unit * dirY
+                if stepX && stepY {
+                    stepX := MuhenkanMouse_TimesInvSqrt2(stepX)
+                    stepY := MuhenkanMouse_TimesInvSqrt2(stepY)
+                }
+                moveX += stepX, moveY += stepY
+                moveRepeat++
+            }
+            if moveX || moveY
+                MouseMove moveX * moveRatio, moveY, 0, "R"
+        } else {
+            moveStart := 0
+        }
 
         ; クリック (押下/解放をエッジ検出)
         MuhenkanMouse_Button(keyLB, "Left")
@@ -112,8 +152,8 @@ MuhenkanMouse_Start() {
         MuhenkanMouse_Button(keyMB, "Middle")
 
         ; スクロール
-        MuhenkanMouse_Scroll(keyScrollU, "{WheelUp}", accelVol)
-        MuhenkanMouse_Scroll(keyScrollD, "{WheelDown}", accelVol)
+        MuhenkanMouse_Scroll(keyScrollU, "{WheelUp}")
+        MuhenkanMouse_Scroll(keyScrollD, "{WheelDown}")
 
         Sleep 10
     }
@@ -144,18 +184,38 @@ MuhenkanMouse_Button(keys, btn) {
     }
 }
 
-; スクロールキーが押されている間、ホイールを送り続ける
-MuhenkanMouse_Scroll(keys, wheel, accelVol) {
+; スクロールキーが押されている間、ホイールを送り続ける (押し続けるほど間隔が短くなる)
+MuhenkanMouse_Scroll(keys, wheel) {
     global MM
+    start := A_TickCount
     while MM.active && GetKeyState("vk1D", "P") && MuhenkanMouse_AnyDown(keys) {
         Send "{Blind}" wheel
-        wait := 100
-        if MuhenkanMouse_Accel()
-            wait -= accelVol * 5
-        if MuhenkanMouse_Decel()
-            wait := 200
-        Sleep Max(wait, 10)
+        Sleep Round(MuhenkanMouse_Ramp(start, MM_WHEEL_RAMP_MS, MM_WHEEL_SLOW_MS, MM_WHEEL_FAST_MS))
     }
+}
+
+; QMK の move_unit (Accelerated モード、速度切り替えキー無し) と同じ計算
+MuhenkanMouse_MoveUnit(p, repeat) {
+    if repeat = 0
+        unit := p.delta
+    else if repeat >= p.timeToMax
+        unit := p.delta * p.maxSpeed
+    else
+        unit := (p.delta * p.maxSpeed * repeat) // p.timeToMax
+    return Min(Max(unit, 1), p.moveMax)
+}
+
+; QMK の times_inv_sqrt2 と同じ。斜め移動で x・y を 181/256 倍し、0 になるときは符号付きの 1 にする
+MuhenkanMouse_TimesInvSqrt2(x) {
+    n := x * 181
+    r := n < 0 ? -((-n + 128) // 256) : (n + 128) // 256
+    return r ? r : (x < 0 ? -1 : 1)
+}
+
+; start からの経過時間に応じて from から to へ直線的に変わる値 (rampMs 経過後は to)
+MuhenkanMouse_Ramp(start, rampMs, from, to) {
+    t := Min((A_TickCount - start) / rampMs, 1)
+    return from + (to - from) * t
 }
 
 ; 割当キー(配列)のいずれかが物理的に押されているか
@@ -166,7 +226,3 @@ MuhenkanMouse_AnyDown(keys) {
     }
     return false
 }
-
-; 加速: ; (vkBB) または Shift / 減速: L または Ctrl
-MuhenkanMouse_Accel() => GetKeyState("vkBB", "P") || GetKeyState("Shift", "P")
-MuhenkanMouse_Decel() => GetKeyState("l", "P") || GetKeyState("Ctrl", "P")

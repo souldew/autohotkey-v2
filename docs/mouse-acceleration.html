@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>無変換マウスの加速</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --border: #d0d7de;
+    --grid: #e5e7eb;
+    --code-bg: #f3f4f6;
+    --accent: #2a78d6;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --text: #e6e8eb;
+      --muted: #9aa3ad;
+      --border: #343a46;
+      --grid: #2a2f38;
+      --code-bg: #1f232b;
+      --accent: #3987e5;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 16px 64px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+    line-height: 1.7;
+  }
+  main { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; line-height: 1.3; }
+  h2 { font-size: 1.15rem; margin: 40px 0 12px; }
+  p { margin: 0 0 12px; }
+  .lead { color: var(--muted); margin-bottom: 24px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 8px; }
+  .tile { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .tile .label { font-size: .8rem; color: var(--muted); }
+  .tile .value { font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.3; }
+  .tile .sub { font-size: .8rem; color: var(--muted); }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; font-size: .85rem; color: var(--muted); }
+  .controls button {
+    font: inherit; font-size: .8rem;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .controls button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 12px; }
+  .legend button {
+    display: inline-flex; align-items: center; gap: 6px;
+    font: inherit; font-size: .8rem;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .legend button[aria-pressed="false"] { opacity: .45; }
+  .chart { position: relative; height: 320px; }
+  .caption { font-size: .85rem; color: var(--muted); margin-top: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th, td { border-bottom: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  tr.adopted td { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .table-wrap { overflow-x: auto; }
+  code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .85em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font-size: .8rem; line-height: 1.6; }
+  pre code { background: none; padding: 0; }
+  ul { padding-left: 1.2em; margin: 0 0 12px; }
+  a { color: var(--accent); }
+  .badge { display: inline-block; font-size: .72rem; padding: 0 8px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); margin-left: 6px; vertical-align: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>無変換マウスの加速</h1>
+  <p class="lead">muhenkan_mouse.ahk でキーを押し続けたときに、カーソルがどう速くなるか。試したプリセットの比較と、miryoku-max28 を選んだ経緯。</p>
+
+  <div class="tiles">
+    <div class="tile"><div class="label">今のプリセット</div><div class="value" style="font-size:1.15rem">miryoku-max28</div><div class="sub">2026-11-18〜</div></div>
+    <div class="tile"><div class="label">最高速</div><div class="value">1,750</div><div class="sub">px/秒（16ms あたり 28px）</div></div>
+    <div class="tile"><div class="label">最高速まで</div><div class="value">0.6</div><div class="sub">秒</div></div>
+    <div class="tile"><div class="label">押し始め</div><div class="value">8 → 1</div><div class="sub">px（押した瞬間 → 直後の 16ms）</div></div>
+  </div>
+
+  <h2>経緯</h2>
+  <div class="panel">
+    <p>もともとは、一定の速さで動かし、加速キーを押している間だけ速くする実装（legacy-accel-keys）にしていた。しかし、この方式ではドラッグがしづらかった。</p>
+    <ul>
+      <li>一定の速さでは、ドラッグ中に細かく位置を合わせられなかった</li>
+      <li>加速・減速キーに Shift・Ctrl を使っていたので、ドラッグ中に修飾キーとして押したいときにぶつかった</li>
+    </ul>
+    <p>そこで、QMK の Mouse Keys の既定の動き方（Accelerated: キーを押し続けるほど速くなる）を取り入れた。押し始めは遅いので細かく合わせられ、加速・減速キーが要らないので Shift・Ctrl を修飾キーとして使える。設定の値は、よく参照される配列の Miryoku に合わせた。</p>
+    <p>ただ、Miryoku の最高速（約 3000px/秒）は速すぎて目で追えないので、そのままは採用しない。もとの実装の最高速（加速キーを押したときの 36px/ループ）を目安にした。カーソルを次のディスプレイへ移す機能を入れるなら、長い距離を動かす速さはそこまで要らない。そのため、加速しても目で追える 28px（16ms あたり、約 1750px/秒）をいったん採用した。</p>
+  </div>
+
+  <h2>速さの比較</h2>
+  <div class="panel">
+    <div class="controls">
+      <span>ループの間隔（legacy-accel-keys・linear-ramp）</span>
+      <button type="button" data-iv="10" aria-pressed="false">10ms</button>
+      <button type="button" data-iv="15.6" aria-pressed="true">15.6ms</button>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="chart"><canvas id="speed" role="img" aria-label="移動キーを押している時間ごとのカーソルの速さ（px/秒）。miryoku-max28 は約 0.6 秒で 1750px/秒に達する"></canvas></div>
+    <p class="caption">移動キーを押し続けたときの、その時点の速さ。凡例を押すと線を出し入れできる。QMK 方式は押した瞬間だけ 8px 動くが、1 回きりなのでこのグラフには出ない。</p>
+  </div>
+
+  <h2>動いた距離の比較</h2>
+  <div class="panel">
+    <div class="chart"><canvas id="distance" role="img" aria-label="移動キーを押している時間ごとの、カーソルが動いた合計距離（px）"></canvas></div>
+    <p class="caption">押し始めからカーソルが動いた合計の距離。短く押したときにどれだけ動くかで、細かい位置合わせのしやすさが分かる。速さのグラフと同じ線を表示する。</p>
+  </div>
+
+  <h2>プリセット</h2>
+  <div class="panel table-wrap">
+    <table>
+      <thead><tr><th>名前</th><th>方式</th><th>押し始め</th><th>最高速</th><th>最高速まで</th></tr></thead>
+      <tbody>
+        <tr><td><code>legacy-accel-keys</code></td><td>一定速度＋加速・減速キー</td><td>12px/ループ</td><td>36px/ループ（<code>;</code> か Shift）。減速は 5px/ループ（<code>l</code> か Ctrl）</td><td>キーを押した瞬間</td></tr>
+        <tr><td><code>miryoku</code></td><td>QMK Accelerated</td><td>8px のあと 1px/16ms</td><td>48px/16ms（約 3000px/秒）</td><td>約 1.0 秒</td></tr>
+        <tr><td><code>miryoku-max36</code></td><td>QMK Accelerated</td><td>8px のあと 1px/16ms</td><td>36px/16ms（約 2250px/秒）</td><td>約 0.75 秒</td></tr>
+        <tr class="adopted"><td><code>miryoku-max28</code><span class="badge">採用</span></td><td>QMK Accelerated</td><td>8px のあと 1px/16ms</td><td>28px/16ms（約 1750px/秒）</td><td>約 0.6 秒</td></tr>
+        <tr><td><code>linear-ramp</code></td><td>ループごとの直線加速</td><td>1px/ループ</td><td>36px/ループ</td><td>1.0 秒</td></tr>
+      </tbody>
+    </table>
+    <p class="caption">legacy-accel-keys は今のコードに入っておらず、commit cbddd10 の muhenkan_mouse.ahk に残っている。ほかは MM_MOVE_PRESETS にあり、MM_MOVE_PRESET の名前を変えると切り替わる。</p>
+  </div>
+
+  <h2>QMK の Accelerated の計算</h2>
+  <div class="panel">
+    <p>QMK の <code>quantum/mousekey.c</code> の <code>move_unit</code>（速度切り替えキーを押していないとき）。<code>repeat</code> は押し始めから送ったレポートの数で、押した瞬間が 0、直後が 1、以降 <code>MOUSEKEY_INTERVAL</code> ごとに 1 ずつ増える。</p>
+<pre><code>if repeat == 0:            unit = MOUSEKEY_MOVE_DELTA
+elif repeat >= TIME_TO_MAX: unit = MOUSEKEY_MOVE_DELTA * MAX_SPEED
+else:                       unit = MOUSEKEY_MOVE_DELTA * MAX_SPEED * repeat / TIME_TO_MAX
+unit = clamp(unit, 1, MOUSEKEY_MOVE_MAX)</code></pre>
+    <p>Miryoku の値（<code>MOVE_DELTA</code> 8、<code>MAX_SPEED</code> 6、<code>TIME_TO_MAX</code> 64、<code>INTERVAL</code> 16ms）では、1 レポートの移動量が 16ms ごとに 0.75px ずつ増える。miryoku-max36・miryoku-max28 は、この傾きのまま <code>MOUSEKEY_MOVE_MAX</code> で上限だけを下げたもので、上限が低いほど早く最高速に届く。</p>
+    <ul>
+      <li>斜めに動くときは、縦・横それぞれ 181/256 倍（約 0.7 倍）にする（QMK の <code>times_inv_sqrt2</code>）</li>
+      <li>1 レポート = 1px として扱う。実機の QMK は USB マウスとしての移動量なので、Windows のポインター速度の設定しだいで体感が少しずれる</li>
+      <li>AutoHotkey の <code>Sleep</code> は 10ms か 15.6ms に切り上げられるので、経過時間から送るべきレポート数を数え、遅れた分はまとめて動かす</li>
+    </ul>
+    <p>参照: <a href="https://github.com/qmk/qmk_firmware/blob/master/quantum/mousekey.c">QMK の mousekey.c</a>・<a href="https://github.com/manna-harbour/miryoku_qmk/blob/miryoku/users/manna-harbour_miryoku/config.h">miryoku_qmk の config.h</a>・<a href="https://docs.qmk.fm/features/mouse_keys">QMK の Mouse Keys</a></p>
+  </div>
+
+  <h2>まだ合わせていないもの</h2>
+  <div class="panel">
+    <p>ホイールはプリセットとは別で、押し続けると約 1 秒で送る間隔が 100ms から 25ms まで縮む（<code>MM_WHEEL_*</code>）。Miryoku（QMK の既定値）は 80ms ごとに 1 ノッチから送り、約 3.2 秒で 1 回 8 ノッチまで増える。</p>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+  const qmkUnit = (repeat, moveMax) => {
+    let unit;
+    if (repeat === 0) unit = 8;
+    else if (repeat >= 64) unit = 48;
+    else unit = Math.floor((48 * repeat) / 64);
+    return Math.min(Math.max(unit, 1), moveMax);
+  };
+
+  // 時刻 t(ms) までに送るレポートは repeat 0..(floor(t/16)+1)
+  const qmk = (moveMax) => ({
+    speed: (t) => (qmkUnit(Math.floor(t / 16) + 1, moveMax) / 16) * 1000,
+    distance: (t) => {
+      let sum = 0;
+      for (let r = 0; r <= Math.floor(t / 16) + 1; r++) sum += qmkUnit(r, moveMax);
+      return sum;
+    },
+  });
+
+  const linearPx = (n, iv) => Math.round(1 + 35 * Math.min((n * iv) / 1000, 1));
+  const linear = () => ({
+    speed: (t, iv) => (linearPx(Math.floor(t / iv), iv) / iv) * 1000,
+    distance: (t, iv) => {
+      let sum = 0;
+      for (let n = 0; n <= Math.floor(t / iv); n++) sum += linearPx(n, iv);
+      return sum;
+    },
+  });
+
+  const constant = (px) => ({
+    speed: (t, iv) => (px / iv) * 1000,
+    distance: (t, iv) => (Math.floor(t / iv) + 1) * px,
+  });
+
+  const SERIES = [
+    { name: "miryoku-max28（採用）", color: "--s1", dash: [], width: 3, model: qmk(28), on: true },
+    { name: "miryoku", color: "--s2", dash: [8, 4], width: 2, model: qmk(127), on: true },
+    { name: "miryoku-max36", color: "--s3", dash: [4, 3], width: 2, model: qmk(36), on: true },
+    { name: "linear-ramp", color: "--s4", dash: [10, 3, 2, 3], width: 2, model: linear(), on: false },
+    { name: "legacy-accel-keys 加速キー", color: "--s5", dash: [2, 3], width: 2, model: constant(36), on: true },
+    { name: "legacy-accel-keys 通常", color: "--s5", dash: [1, 6], width: 2, model: constant(12), on: false },
+  ];
+
+  const TIMES = [];
+  for (let t = 0; t <= 1500; t += 4) TIMES.push(t);
+
+  let loopInterval = 15.6;
+  const charts = {};
+
+  function css(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  function datasets(kind) {
+    return SERIES.map((s) => ({
+      label: s.name,
+      data: TIMES.map((t) => ({ x: t, y: Math.round(s.model[kind](t, loopInterval)) })),
+      borderColor: css(s.color),
+      borderDash: s.dash,
+      borderWidth: s.width,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      borderCapStyle: "round",
+      borderJoinStyle: "round",
+      hidden: !s.on,
+    }));
+  }
+
+  function options(kind) {
+    const muted = css("--muted");
+    const grid = css("--grid");
+    const unit = kind === "speed" ? "px/秒" : "px";
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      parsing: false,
+      interaction: { mode: "index", intersect: false, axis: "x" },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => `${items[0].parsed.x} ms`,
+            label: (item) => ` ${item.dataset.label}: ${item.parsed.y.toLocaleString()} ${unit}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          type: "linear", min: 0, max: 1500,
+          title: { display: true, text: "移動キーを押している時間 (ms)", color: muted },
+          ticks: { color: muted, stepSize: 250 },
+          grid: { display: false },
+          border: { color: grid },
+        },
+        y: {
+          min: 0,
+          max: kind === "speed" ? 4000 : undefined,
+          title: { display: true, text: unit, color: muted },
+          ticks: { color: muted, callback: (v) => v.toLocaleString() },
+          grid: { color: grid },
+          border: { display: false },
+        },
+      },
+    };
+  }
+
+  function render() {
+    for (const kind of ["speed", "distance"]) {
+      charts[kind]?.destroy();
+      charts[kind] = new Chart(document.getElementById(kind), {
+        type: "line",
+        data: { datasets: datasets(kind) },
+        options: options(kind),
+      });
+    }
+    renderLegend();
+  }
+
+  function renderLegend() {
+    const legend = document.getElementById("legend");
+    legend.innerHTML = "";
+    SERIES.forEach((s, i) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.setAttribute("aria-pressed", String(s.on));
+      button.innerHTML = `<svg width="24" height="10" aria-hidden="true"><line x1="1" y1="5" x2="23" y2="5" stroke="${css(s.color)}" stroke-width="${s.width}" stroke-dasharray="${s.dash.join(" ")}" stroke-linecap="round"/></svg>${s.name}`;
+      button.addEventListener("click", () => {
+        s.on = !s.on;
+        button.setAttribute("aria-pressed", String(s.on));
+        for (const chart of Object.values(charts)) {
+          chart.setDatasetVisibility(i, s.on);
+          chart.update();
+        }
+      });
+      legend.appendChild(button);
+    });
+  }
+
+  document.querySelectorAll("[data-iv]").forEach((button) => {
+    button.addEventListener("click", () => {
+      loopInterval = Number(button.dataset.iv);
+      document.querySelectorAll("[data-iv]").forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+      render();
+    });
+  });
+
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+  render();
+</script>
+</body>
+</html>
