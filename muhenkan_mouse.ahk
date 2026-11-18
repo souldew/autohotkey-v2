@@ -3,15 +3,47 @@
 ; キーボードマウス以外の挙動
 vk1D::vk1D
 vk1D & w:: Send "{Blind}{Esc}"
-vk1D & p:: CenterCursorOnActiveWindow()
+vk1D & p:: MoveCursorToNextMonitor()
 
-CenterCursorOnActiveWindow() {
-    hwnd := WinExist("A")
-    if !hwnd
+; カーソルを次のディスプレイの中央へ移す。ディスプレイは左から右 (同じなら上から下) の順に
+; 巡回する。Windows のモニター番号は物理的な並びと一致しないことがあるため並べ替える。
+MoveCursorToNextMonitor() {
+    count := MonitorGetCount()
+    if count < 2
         return
-    WinGetPos &x, &y, &w, &h, hwnd
+
+    monitors := []
+    loop count {
+        MonitorGet A_Index, &left, &top, &right, &bottom
+        monitors.Push({ left: left, top: top, right: right, bottom: bottom })
+    }
+    monitors := SortMonitors(monitors)
+
     CoordMode "Mouse", "Screen"
-    MouseMove x + w // 2, y + h // 2, 0
+    MouseGetPos &x, &y
+    current := 1
+    for i, m in monitors {
+        if x >= m.left && x < m.right && y >= m.top && y < m.bottom {
+            current := i
+            break
+        }
+    }
+
+    next := monitors[Mod(current, monitors.Length) + 1]
+    MouseMove (next.left + next.right) // 2, (next.top + next.bottom) // 2, 0
+}
+
+SortMonitors(monitors) {
+    loop monitors.Length - 1 {
+        loop monitors.Length - A_Index {
+            a := monitors[A_Index], b := monitors[A_Index + 1]
+            if a.left > b.left || (a.left = b.left && a.top > b.top) {
+                monitors[A_Index] := b
+                monitors[A_Index + 1] := a
+            }
+        }
+    }
+    return monitors
 }
 
 ; ============================================================
