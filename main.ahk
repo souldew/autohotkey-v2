@@ -16,6 +16,7 @@ A_MaxHotkeysPerInterval := 1000
 ; #include mouse/mouse.ahk
 #include mouse/xbutton1_hscroll.ahk
 #Include muhenkan_mouse.ahk
+#include lib/hint.ahk
 
 ; テストコマンド用
 ; ^q:: {
