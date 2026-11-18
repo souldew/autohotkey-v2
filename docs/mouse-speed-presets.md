@@ -53,7 +53,31 @@ QMK Mouse Keys の Accelerated モードの計算式（`quantum/mousekey.c` の 
 
 ## ホイール
 
-ホイールはプリセットとは別で、押し続けると約 1 秒で送る間隔が 100ms から 25ms まで縮む（`MM_WHEEL_*`）。Miryoku（QMK の既定値）は 80ms ごとに 1 ノッチから送り、約 3.2 秒で 1 回 8 ノッチまで増える。こちらはまだ合わせていない。
+ホイールも、`MM_WHEEL_PRESET` にプリセット名を入れて選ぶ（プリセットの中身は `MM_WHEEL_PRESETS`）。
+
+今の採用は `qmk-default`（2026-11-19〜）。押し続けると、送る間隔は変えずに 1 回に送るノッチ数を増やす。QMK の Mouse Keys の既定の方式で、一般的なやり方に合わせた。
+
+`miryoku` は押した直後から繰り返すので、単押しでも 2 ノッチ送られ、それまでの実装（単押しで 1 ノッチ）よりスクロール量が増えた。単押しの量を変えないため、繰り返しを始めるまでに QMK の既定どおり 100ms 待つ `qmk-default` にした。
+
+| 名前 | 方式 | 押し始め | 最高速 | 最高速まで | 実装 |
+| --- | --- | --- | --- | --- | --- |
+| `legacy-accel-keys` | 一定間隔＋加速・減速キー | 1 ノッチ/100ms | 1 ノッチ/10ms（加速キー）。減速は 1 ノッチ/200ms | 加速キーを押した瞬間 | commit cbddd10 の `muhenkan_mouse.ahk` |
+| `linear-interval` | 送る間隔を縮める | 1 ノッチ/100ms（毎秒 10） | 1 ノッチ/25ms（毎秒 40） | 1.0 秒 | `MM_WHEEL_PRESETS` |
+| `miryoku` | QMK Accelerated | 2 ノッチのあと 1 ノッチ/80ms（毎秒 12.5） | 8 ノッチ/80ms（毎秒 100） | 約 3.1 秒 | `MM_WHEEL_PRESETS` |
+| `qmk-default` | QMK Accelerated | 1 ノッチ、100ms 後から 1 ノッチ/80ms（毎秒 12.5） | 8 ノッチ/80ms（毎秒 100） | 約 3.2 秒 | `MM_WHEEL_PRESETS` |
+
+### qmk-default・miryoku（ホイール）
+
+QMK の `wheel_unit` の計算式に、QMK の既定値を入れたもの。Miryoku は `MOUSEKEY_WHEEL_DELAY` を 0 にしている（押した直後から繰り返す）以外は、ホイールの値を変えていない。
+
+- 値: `MOUSEKEY_WHEEL_DELTA` 1、`MOUSEKEY_WHEEL_MAX_SPEED` 8、`MOUSEKEY_WHEEL_TIME_TO_MAX` 40、`MOUSEKEY_WHEEL_INTERVAL` 80、`MOUSEKEY_WHEEL_MAX` 127
+- `MOUSEKEY_WHEEL_DELAY` は 10ms 単位で、`qmk-default` は QMK の既定の 10（100ms）、`miryoku` は 0
+- 押した瞬間に 1 ノッチ送り、`WHEEL_DELAY` 後から 80ms ごとに繰り返す。1 回に送るノッチ数は `1 × 8 × repeat ÷ 40`（最低 1）で、repeat 40 以降は 8
+- 繰り返し始めてから約 0.7 秒までは 1 回 1 ノッチで、そこから 0.4 秒ごとに 1 ノッチずつ増える
+- 複数ノッチは、1 回のホイールイベント（ノッチ数 × 120）でまとめて送る。`Send "{WheelUp n}"` だと 1 ノッチのイベントが n 回に分かれ、QMK の送り方と変わるため
+- 1 ノッチで何行スクロールするかは Windows の設定（既定は 3 行）で決まる
+
+最高速（毎秒 100 ノッチ）が速すぎる場合は、カーソルの `miryoku-max28` と同じく、`wheelMax`（`MOUSEKEY_WHEEL_MAX`）で 1 回のノッチ数の上限を下げたプリセットを足す。
 
 
 ## 👤メモ

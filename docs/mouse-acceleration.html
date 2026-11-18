@@ -164,9 +164,29 @@ unit = clamp(unit, 1, MOUSEKEY_MOVE_MAX)</code></pre>
     <p>参照: <a href="https://github.com/qmk/qmk_firmware/blob/master/quantum/mousekey.c">QMK の mousekey.c</a>・<a href="https://github.com/manna-harbour/miryoku_qmk/blob/miryoku/users/manna-harbour_miryoku/config.h">miryoku_qmk の config.h</a>・<a href="https://docs.qmk.fm/features/mouse_keys">QMK の Mouse Keys</a></p>
   </div>
 
-  <h2>まだ合わせていないもの</h2>
+  <h2>ホイール</h2>
   <div class="panel">
-    <p>ホイールはプリセットとは別で、押し続けると約 1 秒で送る間隔が 100ms から 25ms まで縮む（<code>MM_WHEEL_*</code>）。Miryoku（QMK の既定値）は 80ms ごとに 1 ノッチから送り、約 3.2 秒で 1 回 8 ノッチまで増える。</p>
+    <p>ホイールも <code>MM_WHEEL_PRESET</code> の名前で選ぶ。今は <code>qmk-default</code>（2026-11-19〜）で、送る間隔（80ms）は変えずに、押し続けるほど 1 回に送るノッチ数を増やす。QMK の <code>wheel_unit</code> の計算式に QMK の既定値をそのまま入れたもの。</p>
+    <ul>
+      <li>押した瞬間に 1 ノッチ。100ms 待ってから 80ms ごとに繰り返し、約 0.8 秒までは 1 回 1 ノッチ（毎秒 12.5）</li>
+      <li>そこから 0.4 秒ごとに 1 回のノッチ数が 1 ずつ増え、約 3.2 秒で 1 回 8 ノッチ（毎秒 100）になる</li>
+      <li>複数ノッチは 1 回のホイールイベントでまとめて送る</li>
+    </ul>
+    <p>Miryoku は繰り返しまでの待ち時間（<code>MOUSEKEY_WHEEL_DELAY</code>）を 0 にしていて、単押しでも 2 ノッチ送る。それまでの実装より単押しのスクロール量が増えるので、QMK の既定の 100ms のほうを採用した（<code>miryoku</code> もプリセットに残している）。</p>
+    <p>前のプリセット <code>linear-interval</code> は、1 ノッチずつ送り、送る間隔を 1 秒かけて 100ms から 25ms まで縮めていた（毎秒 10 → 40）。比較は mouse-speed-presets.md。</p>
+  </div>
+
+  <h2>ホイールの速さの比較</h2>
+  <div class="panel">
+    <div class="legend" id="wheel-legend"></div>
+    <div class="chart"><canvas id="wheelRate" role="img" aria-label="スクロールキーを押している時間ごとのホイールの速さ（ノッチ/秒）。qmk-default は約 3.2 秒で毎秒 100 ノッチに達する"></canvas></div>
+    <p class="caption">スクロールキーを押し続けたときの、その時点の速さ。押した瞬間の 1 回目（qmk-default は 1 ノッチ、miryoku は続けて 2 ノッチ）はこのグラフには出ない。qmk-default は最初の 100ms は繰り返さないので線が無い。</p>
+  </div>
+
+  <h2>送ったノッチ数の比較</h2>
+  <div class="panel">
+    <div class="chart"><canvas id="wheelTotal" role="img" aria-label="スクロールキーを押している時間ごとの、送ったノッチ数の合計"></canvas></div>
+    <p class="caption">押し始めから送ったノッチ数の合計。1 ノッチで何行スクロールするかは Windows の設定（既定は 3 行）で決まる。速さのグラフと同じ線を表示する。</p>
   </div>
 </main>
 
@@ -205,17 +225,69 @@ unit = clamp(unit, 1, MOUSEKEY_MOVE_MAX)</code></pre>
     distance: (t, iv) => (Math.floor(t / iv) + 1) * px,
   });
 
-  const SERIES = [
-    { name: "miryoku-max28（採用）", color: "--s1", dash: [], width: 3, model: qmk(28), on: true },
-    { name: "miryoku", color: "--s2", dash: [8, 4], width: 2, model: qmk(127), on: true },
-    { name: "miryoku-max36", color: "--s3", dash: [4, 3], width: 2, model: qmk(36), on: true },
-    { name: "linear-ramp", color: "--s4", dash: [10, 3, 2, 3], width: 2, model: linear(), on: false },
-    { name: "legacy-accel-keys 加速キー", color: "--s5", dash: [2, 3], width: 2, model: constant(36), on: true },
-    { name: "legacy-accel-keys 通常", color: "--s5", dash: [1, 6], width: 2, model: constant(12), on: false },
-  ];
+  // ホイール: 押した瞬間に repeat=0、delay 後に repeat=1、以降 80ms ごと
+  const wheelUnit = (repeat) => {
+    if (repeat === 0) return 1;
+    if (repeat >= 40) return 8;
+    return Math.max(1, Math.floor((8 * repeat) / 40));
+  };
+  const wheelDue = (t, delay) => (t < delay ? 0 : Math.floor((t - delay) / 80) + 1);
+  const qmkWheel = (delay) => ({
+    rate: (t) => (t < delay ? null : (wheelUnit(wheelDue(t, delay)) / 80) * 1000),
+    total: (t) => {
+      let sum = 0;
+      for (let r = 0; r <= wheelDue(t, delay); r++) sum += wheelUnit(r);
+      return sum;
+    },
+  });
 
-  const TIMES = [];
-  for (let t = 0; t <= 1500; t += 4) TIMES.push(t);
+  const linearIntervalMs = (t) => Math.round(100 - 75 * Math.min(t / 1000, 1));
+  const linearInterval = () => ({
+    rate: (t) => 1000 / linearIntervalMs(t),
+    total: (t) => {
+      let count = 0;
+      for (let x = 0; x <= t; x += linearIntervalMs(x)) count++;
+      return count;
+    },
+  });
+
+  const constantWheel = (ms) => ({
+    rate: () => 1000 / ms,
+    total: (t) => Math.floor(t / ms) + 1,
+  });
+
+  const GROUPS = [
+    {
+      legendId: "legend",
+      kinds: [
+        { canvasId: "speed", key: "speed", unit: "px/秒", yMax: 4000 },
+        { canvasId: "distance", key: "distance", unit: "px" },
+      ],
+      xMax: 1500, step: 4, xStep: 250, xLabel: "移動キーを押している時間 (ms)",
+      series: [
+        { name: "miryoku-max28（採用）", color: "--s1", dash: [], width: 3, model: qmk(28), on: true },
+        { name: "miryoku", color: "--s2", dash: [8, 4], width: 2, model: qmk(127), on: true },
+        { name: "miryoku-max36", color: "--s3", dash: [4, 3], width: 2, model: qmk(36), on: true },
+        { name: "linear-ramp", color: "--s4", dash: [10, 3, 2, 3], width: 2, model: linear(), on: false },
+        { name: "legacy-accel-keys 加速キー", color: "--s5", dash: [2, 3], width: 2, model: constant(36), on: true },
+        { name: "legacy-accel-keys 通常", color: "--s5", dash: [1, 6], width: 2, model: constant(12), on: false },
+      ],
+    },
+    {
+      legendId: "wheel-legend",
+      kinds: [
+        { canvasId: "wheelRate", key: "rate", unit: "ノッチ/秒", yMax: 110 },
+        { canvasId: "wheelTotal", key: "total", unit: "ノッチ" },
+      ],
+      xMax: 4000, step: 10, xStep: 500, xLabel: "スクロールキーを押している時間 (ms)",
+      series: [
+        { name: "qmk-default（採用）", color: "--s1", dash: [], width: 3, model: qmkWheel(100), on: true },
+        { name: "miryoku", color: "--s2", dash: [8, 4], width: 2, model: qmkWheel(0), on: true },
+        { name: "linear-interval", color: "--s4", dash: [10, 3, 2, 3], width: 2, model: linearInterval(), on: true },
+        { name: "legacy-accel-keys 通常", color: "--s5", dash: [1, 6], width: 2, model: constantWheel(100), on: true },
+      ],
+    },
+  ];
 
   let loopInterval = 15.6;
   const charts = {};
@@ -224,10 +296,15 @@ unit = clamp(unit, 1, MOUSEKEY_MOVE_MAX)</code></pre>
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   }
 
-  function datasets(kind) {
-    return SERIES.map((s) => ({
+  function datasets(group, kind) {
+    const times = [];
+    for (let t = 0; t <= group.xMax; t += group.step) times.push(t);
+    return group.series.map((s) => ({
       label: s.name,
-      data: TIMES.map((t) => ({ x: t, y: Math.round(s.model[kind](t, loopInterval)) })),
+      data: times.map((t) => {
+        const y = s.model[kind.key](t, loopInterval);
+        return { x: t, y: y === null ? null : Math.round(y * 10) / 10 };
+      }),
       borderColor: css(s.color),
       borderDash: s.dash,
       borderWidth: s.width,
@@ -239,10 +316,10 @@ unit = clamp(unit, 1, MOUSEKEY_MOVE_MAX)</code></pre>
     }));
   }
 
-  function options(kind) {
+  function options(group, kind) {
     const muted = css("--muted");
     const grid = css("--grid");
-    const unit = kind === "speed" ? "px/秒" : "px";
+    const unit = kind.unit;
     return {
       responsive: true,
       maintainAspectRatio: false,
@@ -260,15 +337,15 @@ unit = clamp(unit, 1, MOUSEKEY_MOVE_MAX)</code></pre>
       },
       scales: {
         x: {
-          type: "linear", min: 0, max: 1500,
-          title: { display: true, text: "移動キーを押している時間 (ms)", color: muted },
-          ticks: { color: muted, stepSize: 250 },
+          type: "linear", min: 0, max: group.xMax,
+          title: { display: true, text: group.xLabel, color: muted },
+          ticks: { color: muted, stepSize: group.xStep },
           grid: { display: false },
           border: { color: grid },
         },
         y: {
           min: 0,
-          max: kind === "speed" ? 4000 : undefined,
+          max: kind.yMax,
           title: { display: true, text: unit, color: muted },
           ticks: { color: muted, callback: (v) => v.toLocaleString() },
           grid: { color: grid },
@@ -279,21 +356,23 @@ unit = clamp(unit, 1, MOUSEKEY_MOVE_MAX)</code></pre>
   }
 
   function render() {
-    for (const kind of ["speed", "distance"]) {
-      charts[kind]?.destroy();
-      charts[kind] = new Chart(document.getElementById(kind), {
-        type: "line",
-        data: { datasets: datasets(kind) },
-        options: options(kind),
-      });
+    for (const group of GROUPS) {
+      for (const kind of group.kinds) {
+        charts[kind.canvasId]?.destroy();
+        charts[kind.canvasId] = new Chart(document.getElementById(kind.canvasId), {
+          type: "line",
+          data: { datasets: datasets(group, kind) },
+          options: options(group, kind),
+        });
+      }
+      renderLegend(group);
     }
-    renderLegend();
   }
 
-  function renderLegend() {
-    const legend = document.getElementById("legend");
+  function renderLegend(group) {
+    const legend = document.getElementById(group.legendId);
     legend.innerHTML = "";
-    SERIES.forEach((s, i) => {
+    group.series.forEach((s, i) => {
       const button = document.createElement("button");
       button.type = "button";
       button.setAttribute("aria-pressed", String(s.on));
@@ -301,9 +380,9 @@ unit = clamp(unit, 1, MOUSEKEY_MOVE_MAX)</code></pre>
       button.addEventListener("click", () => {
         s.on = !s.on;
         button.setAttribute("aria-pressed", String(s.on));
-        for (const chart of Object.values(charts)) {
-          chart.setDatasetVisibility(i, s.on);
-          chart.update();
+        for (const kind of group.kinds) {
+          charts[kind.canvasId].setDatasetVisibility(i, s.on);
+          charts[kind.canvasId].update();
         }
       });
       legend.appendChild(button);

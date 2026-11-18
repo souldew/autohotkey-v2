@@ -94,10 +94,22 @@ MM_MOVE_PRESETS := Map(
     "linear-ramp", { type: "linear", min: 1, max: 36, rampMs: 1000 }
 )
 
-; ホイールの設定
-MM_WHEEL_SLOW_MS := 100   ; 押し始めのホイール送り間隔
-MM_WHEEL_FAST_MS := 25    ; 最高速のホイール送り間隔
-MM_WHEEL_RAMP_MS := 1000  ; 最高速に達するまでの時間
+; ホイールのプリセット
+;   type "qmk"             … QMK Mouse Keys の Accelerated モード (quantum/mousekey.c の wheel_unit)。
+;                            intervalMs ごとに送り、押し続けるほど 1 回に送るノッチ数が増える。
+;                            delta / maxSpeed / timeToMax / intervalMs / wheelMax / delayMs は QMK の
+;                            MOUSEKEY_WHEEL_DELTA / WHEEL_MAX_SPEED / WHEEL_TIME_TO_MAX /
+;                            WHEEL_INTERVAL / WHEEL_MAX / WHEEL_DELAY (×10ms) と同じ意味。
+;                            delayMs は押した瞬間の 1 回目から繰り返しを始めるまでの待ち時間。
+;   type "linear-interval" … 1 ノッチずつ送り、送る間隔を slowMs から fastMs まで rampMs かけて縮める。
+MM_WHEEL_PRESET := "qmk-default"
+MM_WHEEL_PRESETS := Map(
+    ; QMK の既定値そのまま。単押しは 1 ノッチ
+    "qmk-default", { type: "qmk", delta: 1, maxSpeed: 8, timeToMax: 40, intervalMs: 80, wheelMax: 127, delayMs: 100 },
+    ; Miryoku の値 (QMK の既定値から WHEEL_DELAY だけ 0 にしたもの)。単押しでも 2 ノッチ送る
+    "miryoku", { type: "qmk", delta: 1, maxSpeed: 8, timeToMax: 40, intervalMs: 80, wheelMax: 127, delayMs: 0 },
+    "linear-interval", { type: "linear-interval", slowMs: 100, fastMs: 25, rampMs: 1000 }
+)
 
 ; 無変換 + 割当キーでマウスモード起動 (無変換を押している間だけ)
 vk1D & e:: MuhenkanMouse_Start()   ; 移動 上
@@ -134,6 +146,7 @@ MuhenkanMouse_Start() {
 
     moveRatio := 1                 ; 縦横移動量倍率
     preset := MM_MOVE_PRESETS[MM_MOVE_PRESET]
+    wheelPreset := MM_WHEEL_PRESETS[MM_WHEEL_PRESET]
 
     ; --- 開始処理 ---
     CoordMode "Mouse", "Client"
@@ -163,7 +176,7 @@ MuhenkanMouse_Start() {
                 due := (A_TickCount - moveStart) // preset.intervalMs + 1
             }
             while preset.type = "qmk" && moveRepeat <= due {
-                unit := MuhenkanMouse_MoveUnit(preset, moveRepeat)
+                unit := MuhenkanMouse_AccelUnit(preset, moveRepeat, preset.moveMax)
                 stepX := unit * dirX, stepY := unit * dirY
                 if stepX && stepY {
                     stepX := MuhenkanMouse_TimesInvSqrt2(stepX)
@@ -184,8 +197,8 @@ MuhenkanMouse_Start() {
         MuhenkanMouse_Button(keyMB, "Middle")
 
         ; スクロール
-        MuhenkanMouse_Scroll(keyScrollU, "{WheelUp}")
-        MuhenkanMouse_Scroll(keyScrollD, "{WheelDown}")
+        MuhenkanMouse_Scroll(keyScrollU, 1, wheelPreset)
+        MuhenkanMouse_Scroll(keyScrollD, -1, wheelPreset)
 
         Sleep 10
     }
@@ -216,25 +229,48 @@ MuhenkanMouse_Button(keys, btn) {
     }
 }
 
-; スクロールキーが押されている間、ホイールを送り続ける (押し続けるほど間隔が短くなる)
-MuhenkanMouse_Scroll(keys, wheel) {
+; スクロールキーが押されている間、ホイールを送り続ける。dir は 1 = 上、-1 = 下
+; type "qmk" は押した瞬間に repeat=0 を送り、delayMs 後に repeat=1、以降は intervalMs ごとに
+; repeat=2,3,... を送る。遅れた分はまとめて送る。
+MuhenkanMouse_Scroll(keys, dir, p) {
     global MM
     start := A_TickCount
+    repeat := 0
     while MM.active && GetKeyState("vk1D", "P") && MuhenkanMouse_AnyDown(keys) {
-        Send "{Blind}" wheel
-        Sleep Round(MuhenkanMouse_Ramp(start, MM_WHEEL_RAMP_MS, MM_WHEEL_SLOW_MS, MM_WHEEL_FAST_MS))
+        if p.type = "linear-interval" {
+            MuhenkanMouse_SendWheel(dir, 1)
+            Sleep Round(MuhenkanMouse_Ramp(start, p.rampMs, p.slowMs, p.fastMs))
+            continue
+        }
+        elapsed := A_TickCount - start
+        due := elapsed < p.delayMs ? 0 : (elapsed - p.delayMs) // p.intervalMs + 1
+        notches := 0
+        while repeat <= due {
+            notches += MuhenkanMouse_AccelUnit(p, repeat, p.wheelMax)
+            repeat++
+        }
+        if notches
+            MuhenkanMouse_SendWheel(dir, notches)
+        Sleep 10
     }
 }
 
-; QMK の move_unit (Accelerated モード、速度切り替えキー無し) と同じ計算
-MuhenkanMouse_MoveUnit(p, repeat) {
+; 複数ノッチを 1 回のホイールイベントで送る (QMK が 1 レポートで複数ノッチを送るのと同じ)。
+; Send "{WheelUp n}" だと 1 ノッチのイベントが n 回に分かれる。修飾キーは物理的な状態がそのまま効く。
+MuhenkanMouse_SendWheel(dir, notches) {
+    static MOUSEEVENTF_WHEEL := 0x0800, WHEEL_DELTA := 120
+    DllCall("mouse_event", "UInt", MOUSEEVENTF_WHEEL, "Int", 0, "Int", 0, "Int", dir * WHEEL_DELTA * notches, "UPtr", 0)
+}
+
+; QMK の move_unit / wheel_unit (Accelerated モード、速度切り替えキー無し) と同じ計算
+MuhenkanMouse_AccelUnit(p, repeat, limit) {
     if repeat = 0
         unit := p.delta
     else if repeat >= p.timeToMax
         unit := p.delta * p.maxSpeed
     else
         unit := (p.delta * p.maxSpeed * repeat) // p.timeToMax
-    return Min(Max(unit, 1), p.moveMax)
+    return Min(Max(unit, 1), limit)
 }
 
 ; QMK の times_inv_sqrt2 と同じ。斜め移動で x・y を 181/256 倍し、0 になるときは符号付きの 1 にする
